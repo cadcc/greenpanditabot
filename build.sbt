@@ -53,5 +53,9 @@ lazy val root = (project in file("."))
 
     ),
     assembly / assemblyJarName := "greenPanditaBot.jar",
-    assembly / mainClass := Some("cl.cadcc.greenpandita.Main")
+    assembly / mainClass := Some("cl.cadcc.greenpandita.Main"),
+    assembly / assemblyMergeStrategy := {
+      case "module-info.class" => MergeStrategy.discard
+      case x => MergeStrategy.defaultMergeStrategy(x)
+    }
   )

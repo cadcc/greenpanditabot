@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ScalaCompilerConfiguration">
+    <option name="higherKinds" value="true" />
+    <option name="macros" value="true" />
+    <option name="separateProdTestSources" value="true" />
+    <profile name="sbt 1" modules="GreenPanditaBot,GreenPanditaBot.main,GreenPanditaBot.test,cl.cadcc.greenpanda,cl.cadcc.greenpanda.main,cl.cadcc.greenpanda.test,repos.GreenPanditaBot,repos.GreenPanditaBot.main,repos.GreenPanditaBot.test" />
+  </component>
+</project>

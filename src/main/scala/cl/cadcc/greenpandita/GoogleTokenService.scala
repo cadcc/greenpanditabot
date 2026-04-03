@@ -18,6 +18,7 @@ import doobie.{ConnectionIO, Transactor}
 import doobie.implicits.given
 import doobie.syntax.all.*
 import doobie.postgres.implicits.given
+import org.typelevel.log4cats.Logger
 
 import java.nio.charset.StandardCharsets
 import java.time.Instant
@@ -55,7 +56,7 @@ object GoogleTokenService {
         rand,
         config.integration.google,
         redirectUri.show,
-        logging.getLoggerFromClass(classOf[GoogleTokenServiceImpl])
+        logging.getLoggerFromClass(classOf[GoogleTokenServiceImpl[F]])
       )
       _ <- poll.runEvery(1.hour)(_ => service.cleanup)
       _ <- service.populate // TODO: maybe should this on demand. This could hit the rate limit.

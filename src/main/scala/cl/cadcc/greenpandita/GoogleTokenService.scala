@@ -18,7 +18,7 @@ import doobie.{ConnectionIO, Transactor}
 import doobie.implicits.given
 import doobie.syntax.all.*
 import doobie.postgres.implicits.given
-import org.typelevel.log4cats.Logger
+import org.typelevel.log4cats.{Logger, LoggerFactory}
 
 import java.nio.charset.StandardCharsets
 import java.time.Instant
@@ -37,7 +37,7 @@ trait GoogleTokenService[F[_]] {
 
 object GoogleTokenService {
 
-  def apply[F[_]: {Sync, Concurrent as F, Console, Transactor, PollingWorker as poll}](
+  def apply[F[_]: {Sync, Concurrent as F, Console, Transactor, PollingWorker as poll, LoggerFactory as logging}](
     client: Client[F],
     config: GreenPanditaConfig
   ): F[GoogleTokenService[F]] =

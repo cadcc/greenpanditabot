@@ -59,7 +59,9 @@ class TelegramBot[
     Methods.sendMessage(ChatIntId(chatId), text, messageThreadId = topicId, parseMode = Markdown.some)
       .exec.void
 
-  val healthReport: F[Unit] = ().pure[F]
+  private def sendMessageRaw(msg: MessageData, text: String): F[Unit] =
+    Methods.sendMessage(ChatIntId(msg.chatId.id), text, messageThreadId = msg.chatId.topicId)
+      .exec.void
 
   override def onMessage(msg: Message): F[Unit] =
     val chat = msg.chat
@@ -128,7 +130,7 @@ class TelegramBot[
           hasToken <- googleTokens.hasToken(msg.user.id)
           _ <- MonadThrow[F].raiseWhen(hasToken)(MessageCommandException("Ya haz autorizado este servicio."))
           uri <- googleTokens.getTokenAcquireUri(msg.user.id)
-          _ <- sendMessage(msg, s"Abre este link en el navegador para vincular tu cuenta de telegram con tu cuenta de Google: $uri")
+          _ <- sendMessageRaw(msg, s"Abre este link en el navegador para vincular tu cuenta de telegram con tu cuenta de Google: $uri")
         } yield ()
       case _ =>
         sendMessage(msg, s"No conozco ese servicio :(. Actualmente soporto [${inputServiceList.mkString(", ")}].")

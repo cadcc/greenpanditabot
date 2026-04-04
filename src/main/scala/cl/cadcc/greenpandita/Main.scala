@@ -1,19 +1,16 @@
 package cl.cadcc.greenpandita
 
-import cats.effect.kernel.Resource.ExitCase.{Canceled, Errored}
 import cats.effect.{ExitCode, IO, IOApp, Resource}
-import com.comcast.ip4s.{host, port}
 import com.zaxxer.hikari.HikariConfig
 import doobie.Transactor
 import doobie.hikari.HikariTransactor
 import doobie.util.log.LogHandler
-import org.http4s.{HttpApp, client}
+import org.http4s.HttpApp
 import org.http4s.ember.client.EmberClientBuilder
 import org.http4s.ember.server.EmberServerBuilder
 import org.http4s.server.Server
-import org.typelevel.log4cats.{Logger, LoggerFactory, SelfAwareStructuredLogger}
+import org.typelevel.log4cats.SelfAwareStructuredLogger
 import org.typelevel.log4cats.slf4j.Slf4jFactory
-import telegramium.bots.high.BotApi
 
 given logging: Slf4jFactory[IO] = Slf4jFactory.create[IO]
 

@@ -27,4 +27,4 @@ ENV HTTP_HOST=localhost
 
 EXPOSE 80
 
-CMD ["java", "-cp", "/opt/classpath", "-jar", "greenPanditaBot.jar", "-Dgreenpandita.config=/opt/pandita.conf"]
+CMD ["java", "-cp", "/opt/classpath", "-Dgreenpandita.config=/opt/pandita.conf", "-jar", "greenPanditaBot.jar"]

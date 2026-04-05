@@ -19,6 +19,7 @@ import org.http4s.client.dsl.Http4sClientDsl
 import org.http4s.headers.Authorization
 import org.http4s.syntax.literals.*
 import org.http4s.{AuthScheme, Credentials, Headers, Method, Request, Uri}
+import org.typelevel.log4cats.{Logger, LoggerFactory}
 
 import java.time.Instant
 import scala.List
@@ -37,7 +38,9 @@ trait GoogleForms[F[_]] {
 
 object GoogleForms {
 
-  def apply[F[_]: {Sync, Concurrent}](client: Client[F]): GoogleForms[F] = GoogleFormsImpl[F](client)
+  def apply[F[_]: {Sync, Concurrent, LoggerFactory as logging}](client: Client[F]): GoogleForms[F] =
+    given Logger[F] = logging.getLogger
+    GoogleFormsImpl[F](client)
 
   case class FormId(id: String)
   case class Answer(questionId: String, data: String)
@@ -46,7 +49,7 @@ object GoogleForms {
   case class Section(id: String, title: String, answer: List[Answer])
   type RawForm = FormsJson.Form
 
-  private class GoogleFormsImpl[F[_]: Concurrent as F](client: Client[F]) extends GoogleForms[F] {
+  private class GoogleFormsImpl[F[_]: {Concurrent as F, Logger as logger}](client: Client[F]) extends GoogleForms[F] {
     private val http4sClientDls = Http4sClientDsl[F]
     private val formResponsesJson = FormResponsesJson[F]
     import http4sClientDls.*
@@ -67,13 +70,13 @@ object GoogleForms {
 
     override def listRawResponses(tokenSource: F[String], id: FormId, after: Option[Instant], limit: Option[Int]): F[RawResponseResult] =
       val uri = listUri(id, after = after, limit = limit)
-      listRawResponsesUri(uri, tokenSource)(listRawResponsesPaginated(id, limit))
+      listRawResponsesUri(uri, id, tokenSource)(listRawResponsesPaginated(tokenSource, id, limit))
 
-    private def listRawResponsesPaginated(id: FormId, limit: Option[Int] = None)(tokenSource: F[String], nextPage: String): F[RawResponseResult] =
+    private def listRawResponsesPaginated(tokenSource: F[String], id: FormId, limit: Option[Int] = None)(nextPage: String): F[RawResponseResult] =
       val uri = listUri(id, pageToken = nextPage.some, limit = limit)
-      listRawResponsesUri(uri, tokenSource)(listRawResponsesPaginated(id, limit))
+      listRawResponsesUri(uri, id, tokenSource)(listRawResponsesPaginated(tokenSource, id, limit))
 
-    private def listRawResponsesUri(uri: Uri, tokenSource: F[String])(k: (F[String], String) => F[RawResponseResult]): F[RawResponseResult] =
+    private def listRawResponsesUri(uri: Uri, id: FormId, tokenSource: F[String])(k: String => F[RawResponseResult]): F[RawResponseResult] =
       for {
         token <- tokenSource
         req = Request[F](
@@ -86,9 +89,10 @@ object GoogleForms {
             .map { responses =>
               val parsed = parseResponsesResult(responses)
               responses.nextPageToken match
-                case Some(token) => RawResponseResult(parsed, k(tokenSource, token).some)
+                case Some(token) => RawResponseResult(parsed, k(token).some)
                 case None => RawResponseResult(parsed, None)
             }
+        _ <- logger.trace(s"Obtained responses for Google Forms [$id] := [$res]")
       } yield res
 
     private def parseResponsesResult(responses: formResponsesJson.Responses): Stream[F, RawResponse] =
@@ -122,6 +126,7 @@ object GoogleForms {
           GET(formsBaseUri / id.id)
             .withHeaders(Headers(Authorization(Token(AuthScheme.Bearer, token))))
         form <- client.expect[FormsJson.Form](req)
+        _ <- logger.trace(s"Obtained data for GoogleForms [$id] := [$form]")
       } yield form
 
     override def getCheckpoint(tokenSource: F[String], id: FormId): F[Checkpoint] =

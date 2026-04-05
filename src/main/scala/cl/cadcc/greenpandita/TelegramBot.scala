@@ -178,8 +178,6 @@ class TelegramBot[
     var cp = checkpoint
     val main =
       for {
-        token <- OptionT(googleTokens.getToken(userId)).getOrRaise(RuntimeException("The user did not have a token."))
-        now <- Clock[F].realTimeInstant
         (form, responses, b) <- googleForms.listFormResponses(
           googleTokens.getTokenOrError(userId),
           GoogleForms.FormId(formsId),

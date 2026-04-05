@@ -9,5 +9,5 @@
         <appender-ref ref="STDOUT" />
     </root>
 
-    <propertiesConfigurator resource="logback.properties"/>
+    <propertiesConfigurator resource="${LOG_PROPERTIES:-logback.properties}"/>
 </configuration>

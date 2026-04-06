@@ -10,7 +10,7 @@ import cats.syntax.all.*
 import cl.cadcc.greenpandita.GoogleForms.{FormId, PrettyResponse, RawForm}
 import cl.cadcc.greenpandita.TelegramBot.JobData
 import cl.cadcc.greenpandita.model.NotifyIntegration
-import cl.cadcc.greenpandita.primitives.PollingWorker
+import cl.cadcc.greenpandita.primitives.{JobHandle, PollingWorker}
 import doobie.util.transactor.Transactor
 import doobie.syntax.all.*
 import iozhik.OpenEnum.Known
@@ -37,6 +37,7 @@ class TelegramBot[
   googleTokens: GoogleTokenService[F],
   googleForms: GoogleForms[F],
   api: Api[F],
+  notifyIntegrations: MapRef[F, Int, Option[(NotifyIntegration, JobHandle[F])]],
   config: TelegramConfig,
   notifyConfig: NotifyIntegrationConfig,
 ) extends LongPollBot[F](api) {
@@ -167,7 +168,11 @@ class TelegramBot[
           ).transact(xa)
 
           job <- F.delay { googleFormsNotify(msg.user.id, msg.chatId.id, msg.chatId.topicId, id, ni.id, cp) }
-          _ <- pollingWorker.runEvery(cron){ _ => job }
+          _ <- F.uncancelable { _ =>
+            pollingWorker
+              .runEvery(cron) { _ => job }
+              .flatMap {handle => notifyIntegrations(ni.id).set((ni, handle).some) }
+          }
           _ <- sendMessage(msg, s"Integración (id := ${ni.id}) creada correctamente!\nDesde ahora recibirás notificaciones desde GoogleForms en este chat.")
         } yield ()
       case ("GoogleForms", _) => sendMessage(msg, "Te faltó incluir el id del Google Forms a conectar.")
@@ -240,8 +245,9 @@ object TelegramBot {
   ): Resource[F, Unit] =
     val uri = config.telegram.apiBaseUri / s"bot${config.telegram.token}"
     val api = BotApi[F](client, uri.toString)
-    val bot = TelegramBot[F](googleTokens, googleForms, api, config.telegram, config.integration.notifications)
     for {
+      ref <- MapRef.ofConcurrentHashMap[F, Int, (NotifyIntegration, JobHandle[F])]().toResource
+      bot = TelegramBot[F](googleTokens, googleForms, api, ref, config.telegram, config.integration.notifications)
       _ <- bot.populate.toResource
       _ <- bot.start().background
     } yield ()

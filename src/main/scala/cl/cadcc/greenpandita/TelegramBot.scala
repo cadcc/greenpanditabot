@@ -112,6 +112,8 @@ class TelegramBot[
       case List("connect@greenpanditabot", service) => handleConnectService(msg, service)
       case "notify" :: service :: args => handleNotify(msg, service, args)
       case "notify@greenpanditabot" :: service :: args => handleNotify(msg, service, args)
+      case List("trigger", integrationId) => handleTrigger(msg, integrationId)
+      case List("trigger@greenpanditabot", integrationId) => handleTrigger(msg, integrationId)
       case _ => ().pure[F]
     }
 
@@ -178,6 +180,16 @@ class TelegramBot[
       case ("GoogleForms", _) => sendMessage(msg, "Te faltó incluir el id del Google Forms a conectar.")
       case _ =>
         sendMessage(msg, s"No conozco ese servicio :(. Actualmente soporto [${inputServiceList.mkString(", ")}].")
+
+  private def handleTrigger(msg: MessageData, intIdStr: String): F[Unit] =
+    for {
+      intId <- OptionT.fromOption(intIdStr.toIntOption).getOrRaise(MessageCommandException("El commando trigger recibe el id de una integración."))
+      state <- OptionT(notifyIntegrations(intId).get).getOrRaise(MessageCommandException("No existe tal integración"))
+      b <- state(1).triggerNow()
+      _ <-
+        if b then sendMessage(msg, "done.")
+        else sendMessage(msg, "Integración no fue activada... tal vez ya estaba corriendo.")
+    } yield ()
 
   case class EmptyNotify() extends Exception("No new messages.")
   private def googleFormsNotify(userId: Long, chatId: Long, topicId: Option[Int], formsId: String, notifyId: Int, checkpoint: Instant): F[Unit] =

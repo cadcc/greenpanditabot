@@ -170,11 +170,7 @@ class TelegramBot[
           ).transact(xa)
 
           job <- F.delay { googleFormsNotify(msg.user.id, msg.chatId.id, msg.chatId.topicId, id, ni.id, cp) }
-          _ <- F.uncancelable { _ =>
-            pollingWorker
-              .runEvery(cron) { _ => job }
-              .flatMap {handle => notifyIntegrations(ni.id).set((ni, handle).some) }
-          }
+          _ <- attachIntegration(ni, job)
           _ <- sendMessage(msg, s"Integración (id := ${ni.id}) creada correctamente!\nDesde ahora recibirás notificaciones desde GoogleForms en este chat.")
         } yield ()
       case ("GoogleForms", _) => sendMessage(msg, "Te faltó incluir el id del Google Forms a conectar.")
@@ -230,6 +226,13 @@ class TelegramBot[
     val over = if overlimit then "+" else ""
     s"Alerta! hay ${responses.length}$over nuevas respuestas en el formulario ${form.info.getTitle}\n\n$body"
 
+  private def attachIntegration(ni: NotifyIntegration, job: F[Unit]): F[Unit] =
+    F.uncancelable { _ =>
+      pollingWorker
+        .runEvery(cron) { _ => job }
+        .flatMap {handle => notifyIntegrations(ni.id).set((ni, handle).some) }
+    }
+
   val populate: F[Unit] =
     NotifyIntegration
       .listAll
@@ -237,7 +240,7 @@ class TelegramBot[
       .evalTap { ni =>
         for {
           job <- F.delay { googleFormsNotify(ni.ownerId, ni.chatId, ni.threadId, ni.formsId, ni.id, ni.checkpoint) }
-          _ <- pollingWorker.runEvery(ni.cron) { _ => job }
+          _ <- attachIntegration(ni, job)
           _ <- logger.debug(s"Started integration (id := ${ni.id}).")
           _ <- logger.debug(s"Job started with checkpoit := ${ni.checkpoint}")
         } yield ()

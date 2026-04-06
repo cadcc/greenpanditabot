@@ -114,9 +114,8 @@ object GoogleForms {
         responsesRes <- listRawResponses(tokenSource, id, after, limit)
         formIndex = GoogleFormsImpl.prepareForm(form)
         prettyResponsesResults <- responsesRes.responses.compile.toList
-        prettyResponsesRes = prettyResponsesResults.traverse { res => GoogleFormsImpl.prettifyResponse(formIndex, res) }
+        prettyResponses = prettyResponsesResults.map { res => GoogleFormsImpl.prettifyResponse(formIndex, res) }
         b = responsesRes.k.isDefined
-        prettyResponses <- EitherT.fromEither(prettyResponsesRes).rethrowT
       } yield (form, prettyResponses, b)
     
     override def getForms(tokenSource: F[String], id: FormId): F[RawForm] =
@@ -165,17 +164,18 @@ object GoogleForms {
     private def buildAnswersIndex(responses: RawResponse): Map[String, Answer] =
       responses.answers.map { answer => (answer.questionId, answer) }.toMap
 
-    def prettifyResponse(index: FormIndex, response: RawResponse): PrettifyResult =
+    def prettifyResponse(index: FormIndex, response: RawResponse): PrettyResponse =
       val answerIndex = buildAnswersIndex(response)
+      val sections =
       index.itemsQuestions
-        .traverse { (item, questions) =>
-          questions.traverse { question =>
-            answerIndex.get(question.questionId).toRight(UnknownQuestion(question.questionId))
-          }.map((item, _))
-        }.map { itemAnswers =>
-          val sections = itemAnswers.map { (item, answers) => Section(item.itemId_, item.title_, answers) }
-          PrettyResponse(response.id, sections, response.submittedAt)
+        .map { (item, questions) =>
+          (item,
+            questions.map { question =>
+              answerIndex.getOrElse(question.questionId, Answer(question.questionId, "[[NULL]]"))
+            })
         }
+        .map { (item, answers) => Section(item.itemId_, item.title_, answers) }
+      PrettyResponse(response.id, sections, response.submittedAt)
   }
 
   object FormsJson {

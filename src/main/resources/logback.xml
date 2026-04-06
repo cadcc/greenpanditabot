@@ -9,5 +9,15 @@
         <appender-ref ref="STDOUT" />
     </root>
 
-    <propertiesConfigurator resource="${LOG_PROPERTIES:-logback.properties}"/>
+    <condition class="ch.qos.logback.core.boolex.IsPropertyDefinedCondition">
+        <key>LOG_PROPERTIES</key>
+    </condition>
+    <if>
+        <then>
+            <propertiesConfigurator file="${LOG_PROPERTIES}"/>
+        </then>
+        <else>
+            <propertiesConfigurator resource="logback.properties"/>
+        </else>
+    </if>
 </configuration>

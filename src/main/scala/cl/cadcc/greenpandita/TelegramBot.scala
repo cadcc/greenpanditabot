@@ -4,24 +4,22 @@ import cats.*
 import cats.data.OptionT
 import cats.derived.*
 import cats.effect.*
-import cats.effect.std.{Console, MapRef, Random}
+import cats.effect.std.{Console, MapRef}
 import cats.effect.syntax.all.*
 import cats.syntax.all.*
 import cl.cadcc.greenpandita.GoogleForms.{FormId, PrettyResponse, RawForm}
-import cl.cadcc.greenpandita.TelegramBot.JobData
 import cl.cadcc.greenpandita.model.NotifyIntegration
 import cl.cadcc.greenpandita.primitives.{JobHandle, PollingWorker}
-import doobie.util.transactor.Transactor
 import doobie.syntax.all.*
+import doobie.util.transactor.Transactor
 import iozhik.OpenEnum.Known
 import org.http4s.client.Client
 import org.typelevel.log4cats.LoggerFactory
+import telegramium.bots.*
 import telegramium.bots.high.implicits.*
 import telegramium.bots.high.{Api, BotApi, LongPollBot, Methods}
-import telegramium.bots.*
 
 import java.time.Instant
-import scala.concurrent.duration.DurationInt
 
 case class ChatId(id: Long, topicId: Option[Int])
 
@@ -38,12 +36,14 @@ class TelegramBot[
   googleForms: GoogleForms[F],
   api: Api[F],
   notifyIntegrations: MapRef[F, Int, Option[(NotifyIntegration, JobHandle[F])]],
+  self: User,
   config: TelegramConfig,
   notifyConfig: NotifyIntegrationConfig,
 ) extends LongPollBot[F](api) {
   private given Api[F] = api
   private val logger = LoggerFactory[F].getLogger
 
+  private val username = self.username.get
   private val ownerId = config.ownerId
   private val authorizedGroup = ChatIntId(config.authorizedGroup)
   private val cron = notifyConfig.defaultFreq
@@ -109,11 +109,11 @@ class TelegramBot[
 
     fragments match {
       case List("connect", service) => handleConnectService(msg, service)
-      case List("connect@greenpanditabot", service) => handleConnectService(msg, service)
+      case List(s"connect@$username", service) => handleConnectService(msg, service)
       case "notify" :: service :: args => handleNotify(msg, service, args)
-      case "notify@greenpanditabot" :: service :: args => handleNotify(msg, service, args)
+      case s"notify@$username" :: service :: args => handleNotify(msg, service, args)
       case List("trigger", integrationId) => handleTrigger(msg, integrationId)
-      case List("trigger@greenpanditabot", integrationId) => handleTrigger(msg, integrationId)
+      case List(s"trigger@$username", integrationId) => handleTrigger(msg, integrationId)
       case _ => ().pure[F]
     }
 
@@ -259,10 +259,12 @@ object TelegramBot {
     config: GreenPanditaConfig
   ): Resource[F, Unit] =
     val uri = config.telegram.apiBaseUri / s"bot${config.telegram.token}"
-    val api = BotApi[F](client, uri.toString)
+    given api: Api[F] = BotApi[F](client, uri.toString)
     for {
       ref <- MapRef.ofConcurrentHashMap[F, Int, (NotifyIntegration, JobHandle[F])]().toResource
-      bot = TelegramBot[F](googleTokens, googleForms, api, ref, config.telegram, config.integration.notifications)
+      self <- Methods.getMe().exec.toResource
+      _ <- OptionT.fromOption(self.username).getOrRaise(RuntimeException("Bot without username???")).toResource
+      bot = TelegramBot[F](googleTokens, googleForms, api, ref, self, config.telegram, config.integration.notifications)
       _ <- bot.populate.toResource
       _ <- bot.start().background
     } yield ()

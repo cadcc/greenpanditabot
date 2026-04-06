@@ -7,7 +7,7 @@ import cats.effect.*
 import cats.effect.syntax.all.*
 import cats.effect.std.{Console, Dequeue, Dispatcher, MapRef, Queue, Random, SecureRandom}
 import cats.syntax.all.*
-import cl.cadcc.greenpandita.primitives.{Refreshable, RefreshableCache}
+import cl.cadcc.greenpandita.primitives.{PollingWorker, Refreshable, RefreshableCache}
 import io.circe.Codec
 import org.http4s.Method.POST
 import org.http4s.circe.CirceEntityCodec.given

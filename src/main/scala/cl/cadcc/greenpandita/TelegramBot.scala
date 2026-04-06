@@ -10,6 +10,7 @@ import cats.syntax.all.*
 import cl.cadcc.greenpandita.GoogleForms.{FormId, PrettyResponse, RawForm}
 import cl.cadcc.greenpandita.TelegramBot.JobData
 import cl.cadcc.greenpandita.model.NotifyIntegration
+import cl.cadcc.greenpandita.primitives.PollingWorker
 import doobie.util.transactor.Transactor
 import doobie.syntax.all.*
 import iozhik.OpenEnum.Known

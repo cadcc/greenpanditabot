@@ -1,6 +1,7 @@
 package cl.cadcc.greenpandita
 
 import cats.effect.{ExitCode, IO, IOApp, Resource}
+import cl.cadcc.greenpandita.primitives.PollingWorker
 import com.zaxxer.hikari.HikariConfig
 import doobie.Transactor
 import doobie.hikari.HikariTransactor

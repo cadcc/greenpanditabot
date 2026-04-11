@@ -229,7 +229,7 @@ class TelegramBot[
   private def attachIntegration(ni: NotifyIntegration, job: F[Unit]): F[Unit] =
     F.uncancelable { _ =>
       pollingWorker
-        .runEvery(cron) { _ => job }
+        .runEvery(ni.cron) { _ => job }
         .flatMap {handle => notifyIntegrations(ni.id).set((ni, handle).some) }
     }
 

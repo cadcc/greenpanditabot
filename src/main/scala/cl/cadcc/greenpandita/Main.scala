@@ -19,8 +19,6 @@ object Main extends IOApp {
 
   private val logger: SelfAwareStructuredLogger[IO] = logging.getLogger
 
-  private val token = "8634343428:AAG3ZSZQC0yr27ASEGTUwaJ6DMe3VMgkE0g"
-
   private def middleware(app: HttpApp[IO]): HttpApp[IO] = HttpApp[IO] { req =>
     for {
       res <- app(req).onError {
